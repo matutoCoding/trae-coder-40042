@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Grid3X3, Shield, CheckCircle, Plus, TrendingUp, Save, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import StatCard from '@/components/ui/StatCard';
 import { ChartCard, CustomTooltip } from '@/components/charts/ChartCard';
@@ -52,6 +52,14 @@ function AdhesionPage() {
   const [inspector, setInspector] = useState(latest?.inspector || currentBatch?.operator || '质检');
   const [note, setNote] = useState(latest?.note || '');
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+
+  useEffect(() => {
+    const latestRec = batchRecords[batchRecords.length - 1];
+    setSelectedGrade(latestRec?.grade ?? 1);
+    setTestPosition(latestRec?.position || '正面中心');
+    setInspector(latestRec?.inspector || currentBatch?.operator || '质检');
+    setNote(latestRec?.note || '');
+  }, [currentBatchId]);
 
   const overall = useMemo(() => {
     const records = adhesionRecords.length > 0 ? adhesionRecords : batchRecords;

@@ -269,13 +269,15 @@ function FlowBoardPage() {
 
   const stats = getBatchProcessStats();
   const statsCards = [
-    { label: '总批次', value: stats.total, color: 'text-primary-400' },
-    { label: '上件中', value: stats.loading, color: 'text-info' },
-    { label: '前处理', value: stats.pretreatment, color: 'text-accent-400' },
-    { label: '喷涂中', value: stats.spraying, color: 'text-warning' },
-    { label: '固化中', value: stats.curing, color: 'text-danger' },
-    { label: '检测中', value: stats.inspection, color: 'text-purple-400' },
-    { label: '已完成', value: stats.finished, color: 'text-success' },
+    { label: '总批次', value: stats.total, color: 'text-primary-400', filter: 'all' },
+    { label: '上件中', value: stats.loading, color: 'text-info', filter: 'loading' },
+    { label: '前处理', value: stats.pretreatment, color: 'text-accent-400', filter: 'pretreatment' },
+    { label: '喷涂中', value: stats.spraying, color: 'text-warning', filter: 'spraying' },
+    { label: '固化中', value: stats.curing, color: 'text-danger', filter: 'curing' },
+    { label: '检测中', value: stats.inspection, color: 'text-purple-400', filter: 'inspection' },
+    { label: '下件中', value: stats.unloading, color: 'text-cyan-400', filter: 'unloading' },
+    { label: '包装中', value: stats.packing, color: 'text-orange-400', filter: 'packing' },
+    { label: '已完成', value: stats.finished, color: 'text-success', filter: 'finished' },
   ];
 
   const filteredBatches = statusFilter === 'all'
@@ -288,14 +290,14 @@ function FlowBoardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+      <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-3">
         {statsCards.map((s, i) => (
           <div
             key={s.label}
-            onClick={() => setStatusFilter(i === 0 ? 'all' : ['loading', 'pretreatment', 'spraying', 'curing', 'inspection', 'finished'][i - 1])}
+            onClick={() => setStatusFilter(s.filter)}
             className={cn(
               'card p-4 cursor-pointer transition-all hover:-translate-y-0.5',
-              statusFilter === (i === 0 ? 'all' : ['loading', 'pretreatment', 'spraying', 'curing', 'inspection', 'finished'][i - 1])
+              statusFilter === s.filter
                 ? 'border-primary-500/50 shadow-glow-primary'
                 : ''
             )}
@@ -324,6 +326,8 @@ function FlowBoardPage() {
                 <option value="spraying">喷涂中</option>
                 <option value="curing">固化中</option>
                 <option value="inspection">检测中</option>
+                <option value="unloading">下件中</option>
+                <option value="packing">包装中</option>
                 <option value="finished">已完成</option>
               </select>
             </div>

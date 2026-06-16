@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Eye, AlertTriangle, Image, Plus, CheckCircle, Star, Save, CheckCircle2 } from 'lucide-react';
 import StatCard from '@/components/ui/StatCard';
 import { ChartCard } from '@/components/charts/ChartCard';
@@ -40,6 +40,14 @@ function AppearancePage() {
   const [description, setDescription] = useState(latest?.description || '表面有轻微橘皮纹理，分布均匀，不影响整体外观质量。');
   const [inspector, setInspector] = useState(latest?.inspector || currentBatch?.operator || '质检');
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+
+  useEffect(() => {
+    const latestRec = batchRecords[batchRecords.length - 1];
+    setSelectedGrade(latestRec?.grade || 'B');
+    setSelectedDefects(latestRec?.defects || ['橘皮']);
+    setDescription(latestRec?.description || '表面有轻微橘皮纹理，分布均匀，不影响整体外观质量。');
+    setInspector(latestRec?.inspector || currentBatch?.operator || '质检');
+  }, [currentBatchId]);
 
   const toggleDefect = (defect: string) => {
     setSelectedDefects((prev) =>

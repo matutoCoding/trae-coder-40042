@@ -153,7 +153,7 @@ interface ProductionStore {
   addPackingRecord: (record: Omit<PackingRecord, 'id'>) => void;
 
   getCurrentBatch: () => Batch | undefined;
-  getBatchProcessStats: () => { total: number; loading: number; pretreatment: number; spraying: number; curing: number; inspection: number; finished: number };
+  getBatchProcessStats: () => { total: number; loading: number; pretreatment: number; spraying: number; curing: number; inspection: number; unloading: number; packing: number; finished: number };
 }
 
 export const useProductionStore = create<ProductionStore>((set, get) => ({
@@ -251,11 +251,46 @@ export const useProductionStore = create<ProductionStore>((set, get) => ({
           note,
         };
       }
+
+      const batches = state.batches.map(b => {
+        if (b.id !== batchId) return b;
+        const allRecords = [...records];
+
+        const stepStatus = (s: ProcessStep) => {
+          const r = allRecords.find(x => x.step === s);
+          return r ? r.status : 'pending';
+        };
+
+        let newStatus: BatchStatus = b.status;
+        if (stepStatus('packing') === 'completed') {
+          newStatus = 'finished';
+        } else if (stepStatus('unloading') === 'completed') {
+          newStatus = 'packing';
+        } else if (stepStatus('thickness') === 'completed' &&
+                   stepStatus('adhesion') === 'completed' &&
+                   stepStatus('appearance') === 'completed') {
+          newStatus = 'unloading';
+        } else if (stepStatus('leveling') === 'completed' && stepStatus('oven') === 'completed') {
+          newStatus = 'inspection';
+        } else if (stepStatus('powder') === 'completed' || stepStatus('paint') === 'completed') {
+          newStatus = 'curing';
+        } else if (stepStatus('degreasing') === 'completed' &&
+                   stepStatus('phosphating') === 'completed' &&
+                   stepStatus('drying') === 'completed') {
+          newStatus = 'spraying';
+        } else if (stepStatus('loading') === 'completed') {
+          newStatus = 'pretreatment';
+        }
+
+        return { ...b, status: newStatus };
+      });
+
       return {
         processRecords: {
           ...state.processRecords,
           [batchId]: records,
         },
+        batches,
       };
     });
   },
@@ -283,23 +318,57 @@ export const useProductionStore = create<ProductionStore>((set, get) => ({
     set(state => ({
       thicknessRecords: [...state.thicknessRecords, { ...record, id }],
     }));
+    const { getProcessRecord, completeProcess } = get();
+    const rec = getProcessRecord(record.batchId, 'thickness');
+    if (rec && rec.status !== 'completed') {
+      completeProcess(record.batchId, 'thickness', (record.result === 'pending' ? 'pass' : record.result) as 'pass' | 'fail', `均值 ${record.average}μm`);
+    }
   },
 
-  addAdhesionRecord: (record) => set(state => ({
-    adhesionRecords: [...state.adhesionRecords, { ...record, id: `adh-${Date.now()}` }],
-  })),
+  addAdhesionRecord: (record) => {
+    set(state => ({
+      adhesionRecords: [...state.adhesionRecords, { ...record, id: `adh-${Date.now()}` }],
+    }));
+    const { getProcessRecord, completeProcess } = get();
+    const rec = getProcessRecord(record.batchId, 'adhesion');
+    if (rec && rec.status !== 'completed') {
+      completeProcess(record.batchId, 'adhesion', (record.result === 'pending' ? 'pass' : record.result) as 'pass' | 'fail', `等级 ${record.grade}`);
+    }
+  },
 
-  addAppearanceRecord: (record) => set(state => ({
-    appearanceRecords: [...state.appearanceRecords, { ...record, id: `app-${Date.now()}` }],
-  })),
+  addAppearanceRecord: (record) => {
+    set(state => ({
+      appearanceRecords: [...state.appearanceRecords, { ...record, id: `app-${Date.now()}` }],
+    }));
+    const { getProcessRecord, completeProcess } = get();
+    const rec = getProcessRecord(record.batchId, 'appearance');
+    if (rec && rec.status !== 'completed') {
+      completeProcess(record.batchId, 'appearance', (record.result === 'pending' ? 'pass' : record.result) as 'pass' | 'fail', `等级 ${record.grade}`);
+    }
+  },
 
-  addUnloadingRecord: (record) => set(state => ({
-    unloadingRecords: [...state.unloadingRecords, { ...record, id: `unload-${Date.now()}` }],
-  })),
+  addUnloadingRecord: (record) => {
+    set(state => ({
+      unloadingRecords: [...state.unloadingRecords, { ...record, id: `unload-${Date.now()}` }],
+    }));
+    const { getProcessRecord, completeProcess } = get();
+    const rec = getProcessRecord(record.batchId, 'unloading');
+    if (rec && rec.status !== 'completed') {
+      completeProcess(record.batchId, 'unloading', record.passQty >= record.totalQty * 0.9 ? 'pass' : 'fail');
+    }
+  },
 
   updateUnloadingQty: (batchId, type, delta) => set(state => {
+    const batch = state.batches.find(b => b.id === batchId);
+    const maxQty = batch ? batch.quantity : 9999;
     const current = state.unloadingData[batchId] || { passQty: 0, failQty: 0, reworkQty: 0 };
-    const newVal = Math.max(0, current[type] + delta);
+    const currentTotal = current.passQty + current.failQty + current.reworkQty;
+    let newVal = current[type] + delta;
+    const newTotal = currentTotal - current[type] + newVal;
+    if (newTotal > maxQty) {
+      newVal = current[type];
+    }
+    newVal = Math.max(0, newVal);
     const next = { ...current, [type]: newVal };
     return {
       unloadingData: {
@@ -309,9 +378,16 @@ export const useProductionStore = create<ProductionStore>((set, get) => ({
     };
   }),
 
-  addPackingRecord: (record) => set(state => ({
-    packingRecords: [...state.packingRecords, { ...record, id: `pack-${Date.now()}` }],
-  })),
+  addPackingRecord: (record) => {
+    set(state => ({
+      packingRecords: [...state.packingRecords, { ...record, id: `pack-${Date.now()}` }],
+    }));
+    const { getProcessRecord, completeProcess } = get();
+    const rec = getProcessRecord(record.batchId, 'packing');
+    if (rec && rec.status !== 'completed') {
+      completeProcess(record.batchId, 'packing', 'pass');
+    }
+  },
 
   getCurrentBatch: () => {
     const { batches, currentBatchId } = get();
@@ -327,6 +403,8 @@ export const useProductionStore = create<ProductionStore>((set, get) => ({
       spraying: batches.filter(b => b.status === 'spraying').length,
       curing: batches.filter(b => b.status === 'curing').length,
       inspection: batches.filter(b => b.status === 'inspection').length,
+      unloading: batches.filter(b => b.status === 'unloading').length,
+      packing: batches.filter(b => b.status === 'packing').length,
       finished: batches.filter(b => b.status === 'finished').length,
     };
   },

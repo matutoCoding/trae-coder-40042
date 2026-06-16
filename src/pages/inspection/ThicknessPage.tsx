@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Ruler, Target, CheckCircle2, XCircle, Plus, TrendingUp, Save, AlertTriangle } from 'lucide-react';
 import StatCard from '@/components/ui/StatCard';
 import { ChartCard, CustomTooltip } from '@/components/charts/ChartCard';
@@ -48,6 +48,14 @@ function ThicknessPage() {
   const [tolerance, setTolerance] = useState<number>(latest?.tolerance || DEFAULT_TOLERANCE);
   const [inspector, setInspector] = useState<string>(currentBatch?.operator || '质检');
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+
+  useEffect(() => {
+    const latestRec = batchRecords[batchRecords.length - 1];
+    setPoints(latestRec?.points || [82, 90, 86, 88, 85, 92, 87, 91, 84]);
+    setTarget(latestRec?.target || DEFAULT_TARGET);
+    setTolerance(latestRec?.tolerance || DEFAULT_TOLERANCE);
+    setInspector(currentBatch?.operator || '质检');
+  }, [currentBatchId]);
 
   const stats = useMemo(() => {
     if (points.length === 0) return { avg: 0, min: 0, max: 0, passRate: 0, passCount: 0, result: 'pending' as any };
