@@ -35,10 +35,10 @@ function AppearancePage() {
   );
   const latest = batchRecords[batchRecords.length - 1];
 
-  const [selectedGrade, setSelectedGrade] = useState<string>(latest?.grade || 'B');
-  const [selectedDefects, setSelectedDefects] = useState<string[]>(latest?.defects || ['橘皮']);
-  const [description, setDescription] = useState(latest?.description || '表面有轻微橘皮纹理，分布均匀，不影响整体外观质量。');
-  const [inspector, setInspector] = useState(latest?.inspector || currentBatch?.operator || '质检');
+  const [selectedGrade, setSelectedGrade] = useState<string>('');
+  const [selectedDefects, setSelectedDefects] = useState<string[]>([]);
+  const [description, setDescription] = useState('');
+  const [inspector, setInspector] = useState(currentBatch?.operator || '质检');
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
   const [showAllRecords, setShowAllRecords] = useState(false);
 
@@ -50,8 +50,8 @@ function AppearancePage() {
       setDescription(latestRec.description);
       setInspector(latestRec.inspector);
     } else {
-      setSelectedGrade('B');
-      setSelectedDefects(['橘皮']);
+      setSelectedGrade('');
+      setSelectedDefects([]);
       setDescription('');
       setInspector(currentBatch?.operator || '质检');
     }
@@ -114,6 +114,10 @@ function AppearancePage() {
   const handleSubmit = () => {
     if (!currentBatchId) {
       showToast('error', '请先选择批次');
+      return;
+    }
+    if (!selectedGrade) {
+      showToast('error', '请先选择外观等级');
       return;
     }
     if (!stepRecord || stepRecord.status === 'pending') {
@@ -186,9 +190,9 @@ function AppearancePage() {
                 ))}
               </div>
 
-              <div className={`p-4 rounded-lg ${gradeConfig[selectedGrade].bgColor}`}>
-                <p className={`text-sm font-medium ${gradeConfig[selectedGrade].color}`}>
-                  {gradeConfig[selectedGrade].desc}
+              <div className={`p-4 rounded-lg ${selectedGrade ? gradeConfig[selectedGrade].bgColor : 'bg-dark-700/30'}`}>
+                <p className={`text-sm font-medium ${selectedGrade ? gradeConfig[selectedGrade].color : 'text-dark-500'}`}>
+                  {selectedGrade ? gradeConfig[selectedGrade].desc : '请从上方选择外观等级'}
                 </p>
               </div>
 

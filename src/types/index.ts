@@ -215,6 +215,28 @@ export interface PackingRecord {
   time: string;
 }
 
+export interface StorageLocation {
+  id: string;
+  name: string;
+  area: 'A' | 'B' | 'C';
+  capacity: number;
+  used: number;
+  type: '金属件' | '塑料件' | '成品';
+}
+
+export interface ReworkRecord {
+  id: string;
+  batchId: string;
+  batchNo: string;
+  reason: string;
+  reworkStep: ProcessStep;
+  reworkStepName: string;
+  fromStep: ProcessStep;
+  operator: string;
+  time: string;
+  note?: string;
+}
+
 export interface WasteGasData {
   time: string;
   voc: number;

@@ -13,6 +13,8 @@ import type {
   AppearanceRecord,
   UnloadingRecord,
   PackingRecord,
+  StorageLocation,
+  ReworkRecord,
   WasteGasData,
   WasteGasEquipment,
   Alarm,
@@ -165,6 +167,22 @@ export const mockUnloadingRecords: UnloadingRecord[] = [
 
 export const mockPackingRecords: PackingRecord[] = [
   { id: '1', batchId: '5', batchNo: 'B20260616005', spec: '标准木箱', quantity: 200, location: 'A区-03库位', operator: '吴工', time: '2026-06-16 23:00:00' },
+];
+
+export const mockStorageLocations: StorageLocation[] = [
+  { id: '1', name: 'A区-01库位', area: 'A', capacity: 500, used: 320, type: '金属件' },
+  { id: '2', name: 'A区-03库位', area: 'A', capacity: 500, used: 180, type: '金属件' },
+  { id: '3', name: 'A区-05库位', area: 'A', capacity: 300, used: 95, type: '金属件' },
+  { id: '4', name: 'B区-02库位', area: 'B', capacity: 400, used: 260, type: '塑料件' },
+  { id: '5', name: 'B区-04库位', area: 'B', capacity: 400, used: 0, type: '塑料件' },
+  { id: '6', name: 'C区-01库位', area: 'C', capacity: 600, used: 420, type: '成品' },
+  { id: '7', name: 'C区-03库位', area: 'C', capacity: 600, used: 150, type: '成品' },
+  { id: '8', name: 'C区-05库位', area: 'C', capacity: 400, used: 80, type: '成品' },
+];
+
+export const mockReworkRecords: ReworkRecord[] = [
+  { id: '1', batchId: '5', batchNo: 'B20260616005', reason: '膜厚不达标', reworkStep: 'powder', reworkStepName: '静电喷粉', fromStep: 'thickness', operator: '质检-陈', time: '2026-06-16 21:45:00' },
+  { id: '2', batchId: '4', batchNo: 'B20260617004', reason: '外观橘皮严重', reworkStep: 'paint', reworkStepName: '喷漆膜厚', fromStep: 'appearance', operator: '质检-刘', time: '2026-06-17 11:15:00' },
 ];
 
 export const generateWasteGasData = (): WasteGasData[] => {

@@ -13,6 +13,8 @@ import type {
   AppearanceRecord,
   UnloadingRecord,
   PackingRecord,
+  StorageLocation,
+  ReworkRecord,
 } from '@/types';
 import {
   mockBatches,
@@ -25,6 +27,8 @@ import {
   mockAppearanceRecords,
   mockUnloadingRecords,
   mockPackingRecords,
+  mockStorageLocations,
+  mockReworkRecords,
 } from '@/data/mockData';
 
 const processStepNames: Record<ProcessStep, string> = {
@@ -128,6 +132,8 @@ interface ProductionStore {
   appearanceRecords: AppearanceRecord[];
   unloadingRecords: UnloadingRecord[];
   packingRecords: PackingRecord[];
+  storageLocations: StorageLocation[];
+  reworkRecords: ReworkRecord[];
 
   unloadingData: Record<string, { passQty: number; failQty: number; reworkQty: number }>;
 
@@ -137,6 +143,7 @@ interface ProductionStore {
 
   startProcess: (batchId: string, step: ProcessStep, operator?: string, params?: Record<string, any>) => void;
   completeProcess: (batchId: string, step: ProcessStep, result?: 'pass' | 'fail', note?: string) => void;
+  resetProcessStep: (batchId: string, step: ProcessStep) => void;
   getProcessRecords: (batchId: string) => ProcessRecord[];
   getProcessRecord: (batchId: string, step: ProcessStep) => ProcessRecord | undefined;
 
@@ -152,8 +159,16 @@ interface ProductionStore {
   updateUnloadingQty: (batchId: string, type: 'passQty' | 'failQty' | 'reworkQty', delta: number) => void;
   addPackingRecord: (record: Omit<PackingRecord, 'id'>) => void;
 
+  addReworkRecord: (record: Omit<ReworkRecord, 'id'>) => void;
+  startRework: (batchId: string, reason: string, reworkStep: ProcessStep, fromStep: ProcessStep, operator: string, note?: string) => void;
+  completeRework: (batchId: string, operator: string) => void;
+  getReworkCount: (batchId: string) => number;
+
+  getStorageAvailable: (locationName: string) => number;
+  addPackingToLocation: (locationName: string, qty: number) => boolean;
+
   getCurrentBatch: () => Batch | undefined;
-  getBatchProcessStats: () => { total: number; loading: number; pretreatment: number; spraying: number; curing: number; inspection: number; unloading: number; packing: number; finished: number };
+  getBatchProcessStats: () => { total: number; loading: number; pretreatment: number; spraying: number; curing: number; inspection: number; unloading: number; packing: number; rework: number; finished: number };
 }
 
 export const useProductionStore = create<ProductionStore>((set, get) => ({
@@ -169,6 +184,8 @@ export const useProductionStore = create<ProductionStore>((set, get) => ({
   appearanceRecords: [...mockAppearanceRecords],
   unloadingRecords: [...mockUnloadingRecords],
   packingRecords: [...mockPackingRecords],
+  storageLocations: [...mockStorageLocations],
+  reworkRecords: [...mockReworkRecords],
 
   unloadingData: {},
 
@@ -382,20 +399,142 @@ export const useProductionStore = create<ProductionStore>((set, get) => ({
   }),
 
   addPackingRecord: (record) => {
+    const { addPackingToLocation, batches, getProcessRecord, completeProcess, packingRecords } = get();
+    const ok = addPackingToLocation(record.location, record.quantity);
+    if (!ok) return;
     set(state => ({
       packingRecords: [...state.packingRecords, { ...record, id: `pack-${Date.now()}` }],
     }));
-    const { batches, getProcessRecord, completeProcess, packingRecords } = get();
     const batch = batches.find(b => b.id === record.batchId);
     const rec = getProcessRecord(record.batchId, 'packing');
     if (batch && rec && rec.status !== 'completed') {
-      const packedQty = packingRecords
+      const packedQty = [...packingRecords, { ...record, id: 'tmp' }]
         .filter(r => r.batchId === record.batchId)
         .reduce((s, r) => s + r.quantity, 0);
       if (packedQty >= batch.quantity) {
         completeProcess(record.batchId, 'packing', 'pass');
       }
     }
+  },
+
+  resetProcessStep: (batchId, step) => {
+    set(state => {
+      const records = [...(state.processRecords[batchId] || [])];
+      const idx = records.findIndex(r => r.step === step);
+      if (idx >= 0) {
+        records[idx] = {
+          ...records[idx],
+          status: 'pending',
+          startTime: undefined,
+          endTime: undefined,
+          result: undefined,
+          note: undefined,
+        };
+      }
+      return {
+        processRecords: {
+          ...state.processRecords,
+          [batchId]: records,
+        },
+      };
+    });
+  },
+
+  addReworkRecord: (record) => set(state => ({
+    reworkRecords: [...state.reworkRecords, { ...record, id: `rework-${Date.now()}` }],
+  })),
+
+  startRework: (batchId, reason, reworkStep, fromStep, operator, note) => {
+    const { addReworkRecord, resetProcessStep, updateBatchStatus } = get();
+    addReworkRecord({
+      batchId,
+      batchNo: get().batches.find(b => b.id === batchId)?.batchNo || '',
+      reason,
+      reworkStep,
+      reworkStepName: processStepNames[reworkStep],
+      fromStep,
+      operator,
+      time: new Date().toLocaleString('zh-CN'),
+      note,
+    });
+    resetProcessStep(batchId, reworkStep);
+    if (reworkStep === 'powder' || reworkStep === 'paint') {
+      resetProcessStep(batchId, 'leveling');
+      resetProcessStep(batchId, 'oven');
+      resetProcessStep(batchId, 'thickness');
+      resetProcessStep(batchId, 'adhesion');
+      resetProcessStep(batchId, 'appearance');
+    } else if (reworkStep === 'oven' || reworkStep === 'leveling') {
+      resetProcessStep(batchId, 'thickness');
+      resetProcessStep(batchId, 'adhesion');
+      resetProcessStep(batchId, 'appearance');
+    } else if (reworkStep === 'degreasing' || reworkStep === 'phosphating' || reworkStep === 'drying') {
+      ['powder', 'paint', 'leveling', 'oven', 'thickness', 'adhesion', 'appearance', 'unloading', 'packing'].forEach(s => {
+        resetProcessStep(batchId, s as ProcessStep);
+      });
+    }
+    updateBatchStatus(batchId, 'rework');
+  },
+
+  completeRework: (batchId, operator) => {
+    const { getProcessRecord, batches, updateBatchStatus } = get();
+    const batch = batches.find(b => b.id === batchId);
+    if (!batch) return;
+
+    const hasPreTreatment = ['degreasing', 'phosphating', 'drying'].every(s =>
+      getProcessRecord(batchId, s as ProcessStep)?.status === 'completed'
+    );
+    const hasSpray = getProcessRecord(batchId, 'powder')?.status === 'completed'
+      || getProcessRecord(batchId, 'paint')?.status === 'completed';
+    const hasCuring = getProcessRecord(batchId, 'leveling')?.status === 'completed'
+      && getProcessRecord(batchId, 'oven')?.status === 'completed';
+    const hasInspection = getProcessRecord(batchId, 'thickness')?.status === 'completed'
+      && getProcessRecord(batchId, 'adhesion')?.status === 'completed'
+      && getProcessRecord(batchId, 'appearance')?.status === 'completed';
+    const hasUnloading = getProcessRecord(batchId, 'unloading')?.status === 'completed';
+    const hasPacking = getProcessRecord(batchId, 'packing')?.status === 'completed';
+
+    let newStatus: BatchStatus = 'rework';
+    if (hasPacking) {
+      newStatus = 'finished';
+    } else if (hasUnloading) {
+      newStatus = 'packing';
+    } else if (hasInspection) {
+      newStatus = 'unloading';
+    } else if (hasCuring) {
+      newStatus = 'inspection';
+    } else if (hasSpray) {
+      newStatus = 'curing';
+    } else if (hasPreTreatment) {
+      newStatus = 'spraying';
+    } else {
+      newStatus = 'pretreatment';
+    }
+    updateBatchStatus(batchId, newStatus);
+  },
+
+  getReworkCount: (batchId) => {
+    const { reworkRecords } = get();
+    return reworkRecords.filter(r => r.batchId === batchId).length;
+  },
+
+  getStorageAvailable: (locationName) => {
+    const { storageLocations } = get();
+    const loc = storageLocations.find(l => l.name === locationName);
+    return loc ? Math.max(0, loc.capacity - loc.used) : 0;
+  },
+
+  addPackingToLocation: (locationName, qty) => {
+    const { storageLocations } = get();
+    const loc = storageLocations.find(l => l.name === locationName);
+    if (!loc) return false;
+    if (loc.used + qty > loc.capacity) return false;
+    set(state => ({
+      storageLocations: state.storageLocations.map(l =>
+        l.name === locationName ? { ...l, used: l.used + qty } : l
+      ),
+    }));
+    return true;
   },
 
   getCurrentBatch: () => {
@@ -414,6 +553,7 @@ export const useProductionStore = create<ProductionStore>((set, get) => ({
       inspection: batches.filter(b => b.status === 'inspection').length,
       unloading: batches.filter(b => b.status === 'unloading').length,
       packing: batches.filter(b => b.status === 'packing').length,
+      rework: batches.filter(b => b.status === 'rework').length,
       finished: batches.filter(b => b.status === 'finished').length,
     };
   },

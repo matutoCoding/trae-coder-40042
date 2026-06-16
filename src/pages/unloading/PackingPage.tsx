@@ -14,6 +14,8 @@ function PackingPage() {
     addPackingRecord,
     startProcess,
     getProcessRecord,
+    storageLocations,
+    getStorageAvailable,
   } = useProductionStore();
 
   const currentBatch = getCurrentBatch();
@@ -54,7 +56,11 @@ function PackingPage() {
   }, [currentBatchId]);
 
   const specOptions = ['标准木箱', '纸箱', '托盘包装', '气泡膜', '定制包装'];
-  const locationOptions = ['A区-01库位', 'A区-03库位', 'A区-05库位', 'B区-02库位', 'B区-04库位'];
+
+  const currentLocation = useMemo(() => 
+    storageLocations.find(loc => loc.name === packingForm.location),
+    [storageLocations, packingForm.location]
+  );
 
   const stats = useMemo(() => {
     const totalQty = packingRecords.reduce((s, r) => s + r.quantity, 0);
@@ -69,6 +75,23 @@ function PackingPage() {
       locationCounts,
     };
   }, [packingRecords, batchPackedQty]);
+
+  const areaStats = useMemo(() => {
+    const areas: Record<string, { name: string; used: number; capacity: number; type: string }> = {};
+    storageLocations.forEach(loc => {
+      if (!areas[loc.area]) {
+        areas[loc.area] = {
+          name: `${loc.area}区`,
+          used: 0,
+          capacity: 0,
+          type: loc.type,
+        };
+      }
+      areas[loc.area].used += loc.used;
+      areas[loc.area].capacity += loc.capacity;
+    });
+    return Object.values(areas).sort((a, b) => a.name.localeCompare(b.name));
+  }, [storageLocations]);
 
   const showToast = (type: 'success' | 'error', msg: string) => {
     setToast({ type, msg });
@@ -90,6 +113,11 @@ function PackingPage() {
     }
     if (packingForm.quantity > remainingQty) {
       showToast('error', `本批次剩余可入库 ${remainingQty} 件，本次入库 ${packingForm.quantity} 件将超量`);
+      return;
+    }
+    const storageAvailable = getStorageAvailable(packingForm.location);
+    if (storageAvailable < packingForm.quantity) {
+      showToast('error', `库位剩余容量不足，剩余 ${storageAvailable} 件`);
       return;
     }
     if (!stepRecord || stepRecord.status === 'pending') {
@@ -228,13 +256,32 @@ function PackingPage() {
                   <label className="text-sm text-dark-300">存放库位</label>
                   <select
                     value={packingForm.location}
-                    onChange={(e) => setPackingForm({ ...packingForm, location: e.target.value })}
+                    onChange={(e) => {
+                      const newLocation = e.target.value;
+                      const available = getStorageAvailable(newLocation);
+                      const newQty = Math.min(available, remainingQty);
+                      setPackingForm({ ...packingForm, location: newLocation, quantity: newQty });
+                    }}
                     className="input-field mt-1.5"
                   >
-                    {locationOptions.map((loc) => (
-                      <option key={loc} value={loc}>{loc}</option>
-                    ))}
+                    {storageLocations.map((loc) => {
+                      const isFull = loc.capacity - loc.used <= 0;
+                      return (
+                        <option key={loc.id} value={loc.name} disabled={isFull}>
+                          {loc.name}{isFull ? '（已满）' : ''}
+                        </option>
+                      );
+                    })}
                   </select>
+                  {currentLocation && (
+                    <p className="text-xs text-dark-400 mt-1.5">
+                      容量 <span className="text-white font-medium">{currentLocation.capacity}</span> 件
+                      <span className="mx-1.5">·</span>
+                      已用 <span className="text-warning font-medium">{currentLocation.used}</span> 件
+                      <span className="mx-1.5">·</span>
+                      剩余 <span className="text-success font-medium">{currentLocation.capacity - currentLocation.used}</span> 件
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="text-sm text-dark-300">操作员</label>
@@ -273,29 +320,47 @@ function PackingPage() {
         </div>
 
         <div className="space-y-6">
-          <ChartCard title="库存概览" subtitle="按库位统计">
+          <ChartCard title="库存概览" subtitle="按库区统计">
             <div className="space-y-4">
-              {Object.entries(stats.locationCounts).length === 0 ? (
-                <p className="text-center text-dark-500 py-8 text-sm">暂无入库数据</p>
+              {areaStats.length === 0 ? (
+                <p className="text-center text-dark-500 py-8 text-sm">暂无库位数据</p>
               ) : (
-                Object.entries(stats.locationCounts).map(([loc, qty], i) => (
-                  <div key={loc} className="flex items-center justify-between p-3 bg-dark-700/30 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-lg ${
-                        i === 0 ? 'bg-primary-500/20' : i === 1 ? 'bg-accent-500/20' : 'bg-success/20'
-                      } flex items-center justify-center`}>
-                        <Box size={20} className={i === 0 ? 'text-primary-400' : i === 1 ? 'text-accent-400' : 'text-success'} />
+                areaStats.map((area, i) => {
+                  const percent = area.capacity > 0 ? (area.used / area.capacity) * 100 : 0;
+                  const remaining = area.capacity - area.used;
+                  return (
+                    <div key={area.name} className="p-3 bg-dark-700/30 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-lg ${
+                            i === 0 ? 'bg-primary-500/20' : i === 1 ? 'bg-accent-500/20' : 'bg-success/20'
+                          } flex items-center justify-center`}>
+                            <Box size={20} className={i === 0 ? 'text-primary-400' : i === 1 ? 'text-accent-400' : 'text-success'} />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-white">{area.name}</p>
+                            <p className="text-xs text-dark-400">
+                              {area.type}存放区
+                            </p>
+                          </div>
+                        </div>
+                        <span className="text-xs text-dark-300">剩余 <span className="text-success font-medium">{remaining}</span> 件</span>
                       </div>
-                      <div>
-                        <p className="text-sm font-medium text-white">{loc}</p>
-                        <p className="text-xs text-dark-400">
-                          {loc.startsWith('A') ? '金属件存放区' : loc.startsWith('B') ? '塑料件存放区' : '成品待发区'}
-                        </p>
+                      <div className="flex items-center justify-between text-xs mb-1.5">
+                        <span className="text-dark-400">
+                          已用 <span className="text-white font-medium">{area.used}</span> / 容量 <span className="text-white font-medium">{area.capacity}</span>
+                        </span>
+                        <span className="text-dark-300">{percent.toFixed(1)}%</span>
+                      </div>
+                      <div className="h-1.5 bg-dark-700 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-primary-500 to-accent-500 transition-all"
+                          style={{ width: `${percent}%` }}
+                        />
                       </div>
                     </div>
-                    <span className="text-lg font-bold text-white">{qty}件</span>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </ChartCard>
