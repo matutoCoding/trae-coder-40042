@@ -48,13 +48,22 @@ function ThicknessPage() {
   const [tolerance, setTolerance] = useState<number>(latest?.tolerance || DEFAULT_TOLERANCE);
   const [inspector, setInspector] = useState<string>(currentBatch?.operator || '质检');
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+  const [showAllRecords, setShowAllRecords] = useState(false);
 
   useEffect(() => {
     const latestRec = batchRecords[batchRecords.length - 1];
-    setPoints(latestRec?.points || [82, 90, 86, 88, 85, 92, 87, 91, 84]);
-    setTarget(latestRec?.target || DEFAULT_TARGET);
-    setTolerance(latestRec?.tolerance || DEFAULT_TOLERANCE);
-    setInspector(currentBatch?.operator || '质检');
+    if (latestRec) {
+      setPoints(latestRec.points);
+      setTarget(latestRec.target);
+      setTolerance(latestRec.tolerance);
+      setInspector(latestRec.inspector);
+    } else {
+      setPoints([0, 0, 0, 0, 0, 0, 0, 0, 0]);
+      setTarget(DEFAULT_TARGET);
+      setTolerance(DEFAULT_TOLERANCE);
+      setInspector(currentBatch?.operator || '质检');
+    }
+    setShowAllRecords(false);
   }, [currentBatchId]);
 
   const stats = useMemo(() => {
@@ -75,14 +84,14 @@ function ThicknessPage() {
   );
 
   const trendData = useMemo(() => {
-    const last10 = thicknessRecords.slice(-10);
+    const last10 = batchRecords.slice(-10);
     if (last10.length === 0) return [];
     return last10.map(r => ({
       date: r.time.split(' ')[0].slice(5),
       thickness: r.average,
       target: r.target,
     }));
-  }, [thicknessRecords]);
+  }, [batchRecords]);
 
   const getPointColor = (value: number) => {
     if (Math.abs(value - target) <= tolerance) return 'bg-success';
@@ -313,7 +322,20 @@ function ThicknessPage() {
         </ChartCard>
       )}
 
-      <ChartCard title="历史记录" subtitle={`本批次 ${batchRecords.length} 条 · 全局 ${thicknessRecords.length} 条`}>
+      <ChartCard
+        title="历史记录"
+        subtitle={showAllRecords ? `全局共 ${thicknessRecords.length} 条` : `本批次 ${batchRecords.length} 条`}
+        action={
+          <button
+            onClick={() => setShowAllRecords(!showAllRecords)}
+            className={`text-xs px-3 py-1.5 rounded transition-colors ${
+              showAllRecords ? 'bg-primary-500 text-white' : 'bg-dark-700 text-dark-300 hover:bg-dark-600'
+            }`}
+          >
+            {showAllRecords ? '只看当前批次' : '查看全部记录'}
+          </button>
+        }
+      >
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -331,14 +353,14 @@ function ThicknessPage() {
               </tr>
             </thead>
             <tbody className="text-sm">
-              {thicknessRecords.length === 0 ? (
+              {(showAllRecords ? thicknessRecords : batchRecords).length === 0 ? (
                 <tr>
                   <td colSpan={10} className="py-10 text-center text-dark-500 text-sm">
                     暂无记录，请先选择批次并提交检测
                   </td>
                 </tr>
               ) : (
-                thicknessRecords.slice().reverse().map((record) => (
+                (showAllRecords ? thicknessRecords : batchRecords).slice().reverse().map((record) => (
                   <tr
                     key={record.id}
                     className={`border-b border-dark-700/30 transition-colors ${

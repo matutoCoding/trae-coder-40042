@@ -52,17 +52,26 @@ function AdhesionPage() {
   const [inspector, setInspector] = useState(latest?.inspector || currentBatch?.operator || '质检');
   const [note, setNote] = useState(latest?.note || '');
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+  const [showAllRecords, setShowAllRecords] = useState(false);
 
   useEffect(() => {
     const latestRec = batchRecords[batchRecords.length - 1];
-    setSelectedGrade(latestRec?.grade ?? 1);
-    setTestPosition(latestRec?.position || '正面中心');
-    setInspector(latestRec?.inspector || currentBatch?.operator || '质检');
-    setNote(latestRec?.note || '');
+    if (latestRec) {
+      setSelectedGrade(latestRec.grade);
+      setTestPosition(latestRec.position);
+      setInspector(latestRec.inspector);
+      setNote(latestRec.note || '');
+    } else {
+      setSelectedGrade(1);
+      setTestPosition('正面中心');
+      setInspector(currentBatch?.operator || '质检');
+      setNote('');
+    }
+    setShowAllRecords(false);
   }, [currentBatchId]);
 
   const overall = useMemo(() => {
-    const records = adhesionRecords.length > 0 ? adhesionRecords : batchRecords;
+    const records = batchRecords;
     if (records.length === 0) {
       return { avg: 0, passRate: 0, zeroRate: 0, stats: [] as any[] };
     }
@@ -81,7 +90,7 @@ function AdhesionPage() {
       zeroRate: Number(((zero / records.length) * 100).toFixed(1)),
       stats,
     };
-  }, [adhesionRecords, batchRecords]);
+  }, [batchRecords]);
 
   const showToast = (type: 'success' | 'error', msg: string) => {
     setToast({ type, msg });
@@ -262,7 +271,20 @@ function AdhesionPage() {
         </div>
       </div>
 
-      <ChartCard title="历史记录" subtitle={`本批次 ${batchRecords.length} 条 · 全局 ${adhesionRecords.length} 条`}>
+      <ChartCard
+        title="历史记录"
+        subtitle={showAllRecords ? `全局共 ${adhesionRecords.length} 条` : `本批次 ${batchRecords.length} 条`}
+        action={
+          <button
+            onClick={() => setShowAllRecords(!showAllRecords)}
+            className={`text-xs px-3 py-1.5 rounded transition-colors ${
+              showAllRecords ? 'bg-primary-500 text-white' : 'bg-dark-700 text-dark-300 hover:bg-dark-600'
+            }`}
+          >
+            {showAllRecords ? '只看当前批次' : '查看全部记录'}
+          </button>
+        }
+      >
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -279,14 +301,14 @@ function AdhesionPage() {
               </tr>
             </thead>
             <tbody className="text-sm">
-              {adhesionRecords.length === 0 ? (
+              {(showAllRecords ? adhesionRecords : batchRecords).length === 0 ? (
                 <tr>
                   <td colSpan={9} className="py-10 text-center text-dark-500 text-sm">
                     暂无记录，请先选择批次并提交检测
                   </td>
                 </tr>
               ) : (
-                adhesionRecords.slice().reverse().map((record) => (
+                (showAllRecords ? adhesionRecords : batchRecords).slice().reverse().map((record) => (
                   <tr
                     key={record.id}
                     className={`border-b border-dark-700/30 transition-colors ${

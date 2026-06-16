@@ -40,13 +40,22 @@ function AppearancePage() {
   const [description, setDescription] = useState(latest?.description || '表面有轻微橘皮纹理，分布均匀，不影响整体外观质量。');
   const [inspector, setInspector] = useState(latest?.inspector || currentBatch?.operator || '质检');
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+  const [showAllRecords, setShowAllRecords] = useState(false);
 
   useEffect(() => {
     const latestRec = batchRecords[batchRecords.length - 1];
-    setSelectedGrade(latestRec?.grade || 'B');
-    setSelectedDefects(latestRec?.defects || ['橘皮']);
-    setDescription(latestRec?.description || '表面有轻微橘皮纹理，分布均匀，不影响整体外观质量。');
-    setInspector(latestRec?.inspector || currentBatch?.operator || '质检');
+    if (latestRec) {
+      setSelectedGrade(latestRec.grade);
+      setSelectedDefects(latestRec.defects);
+      setDescription(latestRec.description);
+      setInspector(latestRec.inspector);
+    } else {
+      setSelectedGrade('B');
+      setSelectedDefects(['橘皮']);
+      setDescription('');
+      setInspector(currentBatch?.operator || '质检');
+    }
+    setShowAllRecords(false);
   }, [currentBatchId]);
 
   const toggleDefect = (defect: string) => {
@@ -56,10 +65,10 @@ function AppearancePage() {
   };
 
   const overall = useMemo(() => {
-    const records = appearanceRecords;
+    const records = batchRecords;
     if (records.length === 0) {
       return {
-        aRate: 0, passRate: 0, batchCount: batchRecords.length, defectTotal: 0,
+        aRate: 0, passRate: 0, batchCount: 0, defectTotal: 0,
         gradeStats: [
           { grade: 'A', count: 0, label: 'A级' },
           { grade: 'B', count: 0, label: 'B级' },
@@ -86,7 +95,7 @@ function AppearancePage() {
       gradeStats: Object.entries(gradeCounts).map(([g, c]) => ({ grade: g, count: Math.round((c / total) * 100), label: `${g}级` })),
       defectStats: defectCounts,
     };
-  }, [appearanceRecords, batchRecords]);
+  }, [batchRecords]);
 
   const defectStatsList = [
     { name: '橘皮', key: '橘皮' },
@@ -292,7 +301,20 @@ function AppearancePage() {
         </div>
       </div>
 
-      <ChartCard title="历史记录" subtitle={`本批次 ${batchRecords.length} 条 · 全局 ${appearanceRecords.length} 条`}>
+      <ChartCard
+        title="历史记录"
+        subtitle={showAllRecords ? `全局共 ${appearanceRecords.length} 条` : `本批次 ${batchRecords.length} 条`}
+        action={
+          <button
+            onClick={() => setShowAllRecords(!showAllRecords)}
+            className={`text-xs px-3 py-1.5 rounded transition-colors ${
+              showAllRecords ? 'bg-primary-500 text-white' : 'bg-dark-700 text-dark-300 hover:bg-dark-600'
+            }`}
+          >
+            {showAllRecords ? '只看当前批次' : '查看全部记录'}
+          </button>
+        }
+      >
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -309,14 +331,14 @@ function AppearancePage() {
               </tr>
             </thead>
             <tbody className="text-sm">
-              {appearanceRecords.length === 0 ? (
+              {(showAllRecords ? appearanceRecords : batchRecords).length === 0 ? (
                 <tr>
                   <td colSpan={9} className="py-10 text-center text-dark-500 text-sm">
                     暂无记录，请先选择批次并提交检测
                   </td>
                 </tr>
               ) : (
-                appearanceRecords.slice().reverse().map((record) => (
+                (showAllRecords ? appearanceRecords : batchRecords).slice().reverse().map((record) => (
                   <tr
                     key={record.id}
                     className={`border-b border-dark-700/30 transition-colors ${

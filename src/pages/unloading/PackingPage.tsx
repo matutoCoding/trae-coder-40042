@@ -24,6 +24,12 @@ function PackingPage() {
   );
   const latest = batchRecords[batchRecords.length - 1];
 
+  const batchPackedQty = useMemo(
+    () => batchRecords.reduce((s, r) => s + r.quantity, 0),
+    [batchRecords]
+  );
+  const remainingQty = currentBatch ? Math.max(currentBatch.quantity - batchPackedQty, 0) : 0;
+
   const [packingForm, setPackingForm] = useState({
     spec: '标准木箱',
     quantity: 0,
@@ -31,37 +37,38 @@ function PackingPage() {
     operator: '',
     note: '',
   });
+  const [showAllRecords, setShowAllRecords] = useState(false);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
 
   useEffect(() => {
     if (currentBatch) {
       setPackingForm({
         spec: latest?.spec || '标准木箱',
-        quantity: latest?.quantity || currentBatch.quantity,
+        quantity: Math.min(remainingQty || currentBatch.quantity, currentBatch.quantity),
         location: latest?.location || 'A区-01库位',
         operator: latest?.operator || currentBatch.operator,
         note: '',
       });
     }
+    setShowAllRecords(false);
   }, [currentBatchId]);
 
   const specOptions = ['标准木箱', '纸箱', '托盘包装', '气泡膜', '定制包装'];
   const locationOptions = ['A区-01库位', 'A区-03库位', 'A区-05库位', 'B区-02库位', 'B区-04库位'];
 
   const stats = useMemo(() => {
-    const total = packingRecords.reduce((s, r) => s + r.quantity, 0);
-    const batchTotal = batchRecords.reduce((s, r) => s + r.quantity, 0);
+    const totalQty = packingRecords.reduce((s, r) => s + r.quantity, 0);
     const locationCounts: Record<string, number> = {};
     packingRecords.forEach(r => {
       locationCounts[r.location] = (locationCounts[r.location] || 0) + r.quantity;
     });
     return {
-      totalQty: total,
-      batchQty: batchTotal,
+      totalQty,
+      batchQty: batchPackedQty,
       totalBatches: new Set(packingRecords.map(r => r.batchId)).size,
       locationCounts,
     };
-  }, [packingRecords, batchRecords]);
+  }, [packingRecords, batchPackedQty]);
 
   const showToast = (type: 'success' | 'error', msg: string) => {
     setToast({ type, msg });
@@ -73,12 +80,16 @@ function PackingPage() {
       showToast('error', '请先选择批次');
       return;
     }
+    if (stepRecord?.status === 'completed') {
+      showToast('error', '本批次包装已完成，无需重复入库');
+      return;
+    }
     if (packingForm.quantity <= 0) {
       showToast('error', '入库数量必须大于0');
       return;
     }
-    if (packingForm.quantity > currentBatch.quantity) {
-      showToast('error', `入库数量不能超过批次数量 ${currentBatch.quantity}`);
+    if (packingForm.quantity > remainingQty) {
+      showToast('error', `本批次剩余可入库 ${remainingQty} 件，本次入库 ${packingForm.quantity} 件将超量`);
       return;
     }
     if (!stepRecord || stepRecord.status === 'pending') {
@@ -93,20 +104,28 @@ function PackingPage() {
       operator: packingForm.operator,
       time: new Date().toLocaleString('zh-CN'),
     });
-    showToast('success', `包装入库成功 · ${packingForm.quantity}件`);
+    const newRemaining = remainingQty - packingForm.quantity;
+    const isJustCompleted = newRemaining === 0;
+    showToast('success', isJustCompleted
+      ? `批次 ${currentBatch.batchNo} 入库完成 · 全部 ${currentBatch.quantity} 件已入库`
+      : `已入库 ${packingForm.quantity} 件，剩余 ${newRemaining} 件待入库`
+    );
+    setPackingForm(f => ({ ...f, quantity: newRemaining, note: '' }));
   };
 
   const handleReset = () => {
     if (currentBatch) {
       setPackingForm({
         spec: '标准木箱',
-        quantity: currentBatch.quantity,
+        quantity: remainingQty || currentBatch.quantity,
         location: 'A区-01库位',
         operator: currentBatch.operator,
         note: '',
       });
     }
   };
+
+  const tableRecords = showAllRecords ? packingRecords : batchRecords;
 
   return (
     <div className="space-y-6">
@@ -124,10 +143,10 @@ function PackingPage() {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <StatCard title="今日入库" value={stats.totalQty} unit="件" icon={Package} color="primary" />
-        <StatCard title="包装批次" value={stats.totalBatches} unit="批" icon={Box} color="accent" />
-        <StatCard title="本批次入库" value={stats.batchQty} unit="件" icon={TrendingUp} color="success" />
-        <StatCard title="待包装" value={stepRecord?.status === 'pending' ? 1 : 0} unit="批" icon={PackagePlus} color="warning" />
+        <StatCard title="批次总数量" value={currentBatch?.quantity ?? 0} unit="件" icon={Package} color="primary" />
+        <StatCard title="本批次已入库" value={stats.batchQty} unit="件" icon={TrendingUp} color="success" />
+        <StatCard title="本批次待入库" value={remainingQty} unit="件" icon={PackagePlus} color="warning" />
+        <StatCard title="包装总批次数" value={stats.totalBatches} unit="批" icon={Box} color="accent" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -158,13 +177,20 @@ function PackingPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-sm text-dark-300">批次数量</label>
-                  <input
-                    type="text"
-                    value={currentBatch ? `${currentBatch.quantity} 件` : ''}
-                    readOnly
-                    className="input-field mt-1.5 bg-dark-800/50"
-                  />
+                  <label className="text-sm text-dark-300">入库进度</label>
+                  <div className="mt-1.5 flex items-center gap-3">
+                    <p className="text-lg font-medium text-white">
+                      <span className="text-primary-400">{stats.batchQty}</span>
+                      <span className="mx-2 text-dark-500">/</span>
+                      <span className="text-dark-200">{currentBatch?.quantity ?? 0} 件</span>
+                    </p>
+                  </div>
+                  <div className="h-1.5 mt-1.5 bg-dark-700 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-primary-500 to-accent-500 transition-all"
+                      style={{ width: `${currentBatch && currentBatch.quantity > 0 ? (stats.batchQty / currentBatch.quantity) * 100 : 0}%` }}
+                    />
+                  </div>
                 </div>
                 <div>
                   <label className="text-sm text-dark-300">包装规格</label>
@@ -182,17 +208,21 @@ function PackingPage() {
 
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm text-dark-300">入库数量</label>
+                  <label className="text-sm text-dark-300">本次入库数量</label>
                   <input
                     type="number"
                     value={packingForm.quantity}
                     onChange={(e) => setPackingForm({ ...packingForm, quantity: Number(e.target.value) })}
                     className="input-field mt-1.5"
-                    max={currentBatch?.quantity || 9999}
+                    max={remainingQty}
+                    min={0}
                   />
-                  {currentBatch && (
-                    <p className="text-xs text-dark-400 mt-1">最大可入库: {currentBatch.quantity} 件</p>
-                  )}
+                  <p className="text-xs text-dark-400 mt-1">
+                    本次最多可入库: <span className="text-warning font-medium">{remainingQty}</span> 件
+                    {remainingQty === 0 && currentBatch && stepRecord?.status !== 'completed' && (
+                      <span className="ml-2 text-success">（数量对齐后将自动完成包装节点）</span>
+                    )}
+                  </p>
                 </div>
                 <div>
                   <label className="text-sm text-dark-300">存放库位</label>
@@ -231,7 +261,7 @@ function PackingPage() {
             <div className="mt-6 pt-6 border-t border-dark-700/50 flex gap-3">
               <button
                 onClick={handleSubmit}
-                disabled={!currentBatchId}
+                disabled={!currentBatchId || remainingQty === 0}
                 className="btn-accent flex-1 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <PackagePlus size={18} />
@@ -243,7 +273,7 @@ function PackingPage() {
         </div>
 
         <div className="space-y-6">
-          <ChartCard title="库存概览" subtitle="当前库存情况">
+          <ChartCard title="库存概览" subtitle="按库位统计">
             <div className="space-y-4">
               {Object.entries(stats.locationCounts).length === 0 ? (
                 <p className="text-center text-dark-500 py-8 text-sm">暂无入库数据</p>
@@ -301,7 +331,20 @@ function PackingPage() {
         </div>
       </div>
 
-      <ChartCard title="入库记录" subtitle={`本批次 ${batchRecords.length} 条 · 全局 ${packingRecords.length} 条`}>
+      <ChartCard
+        title="入库记录"
+        subtitle={showAllRecords ? `全局共 ${packingRecords.length} 条` : `本批次 ${batchRecords.length} 条`}
+        action={
+          <button
+            onClick={() => setShowAllRecords(!showAllRecords)}
+            className={`text-xs px-3 py-1.5 rounded transition-colors ${
+              showAllRecords ? 'bg-primary-500 text-white' : 'bg-dark-700 text-dark-300 hover:bg-dark-600'
+            }`}
+          >
+            {showAllRecords ? '只看当前批次' : '查看全部记录'}
+          </button>
+        }
+      >
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -315,14 +358,14 @@ function PackingPage() {
               </tr>
             </thead>
             <tbody className="text-sm">
-              {packingRecords.length === 0 ? (
+              {tableRecords.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-10 text-center text-dark-500 text-sm">
                     暂无入库记录
                   </td>
                 </tr>
               ) : (
-                packingRecords.slice().reverse().map((record) => (
+                tableRecords.slice().reverse().map((record) => (
                   <tr
                     key={record.id}
                     className={`border-b border-dark-700/30 transition-colors ${

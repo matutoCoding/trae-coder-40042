@@ -351,10 +351,13 @@ export const useProductionStore = create<ProductionStore>((set, get) => ({
     set(state => ({
       unloadingRecords: [...state.unloadingRecords, { ...record, id: `unload-${Date.now()}` }],
     }));
-    const { getProcessRecord, completeProcess } = get();
+    const { batches, getProcessRecord, completeProcess } = get();
+    const batch = batches.find(b => b.id === record.batchId);
     const rec = getProcessRecord(record.batchId, 'unloading');
-    if (rec && rec.status !== 'completed') {
-      completeProcess(record.batchId, 'unloading', record.passQty >= record.totalQty * 0.9 ? 'pass' : 'fail');
+    if (batch && rec && rec.status !== 'completed') {
+      if (record.totalQty >= batch.quantity) {
+        completeProcess(record.batchId, 'unloading', record.passQty >= record.totalQty * 0.9 ? 'pass' : 'fail');
+      }
     }
   },
 
@@ -382,10 +385,16 @@ export const useProductionStore = create<ProductionStore>((set, get) => ({
     set(state => ({
       packingRecords: [...state.packingRecords, { ...record, id: `pack-${Date.now()}` }],
     }));
-    const { getProcessRecord, completeProcess } = get();
+    const { batches, getProcessRecord, completeProcess, packingRecords } = get();
+    const batch = batches.find(b => b.id === record.batchId);
     const rec = getProcessRecord(record.batchId, 'packing');
-    if (rec && rec.status !== 'completed') {
-      completeProcess(record.batchId, 'packing', 'pass');
+    if (batch && rec && rec.status !== 'completed') {
+      const packedQty = packingRecords
+        .filter(r => r.batchId === record.batchId)
+        .reduce((s, r) => s + r.quantity, 0);
+      if (packedQty >= batch.quantity) {
+        completeProcess(record.batchId, 'packing', 'pass');
+      }
     }
   },
 

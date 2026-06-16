@@ -53,12 +53,16 @@ function UnloadPage() {
   };
 
   const handleConfirm = () => {
-    if (!currentBatchId) {
+    if (!currentBatchId || !currentBatch) {
       showToast('error', '请先选择批次');
       return;
     }
-    if (total === 0) {
-      showToast('error', '请至少登记1件下件');
+    if (stepRecord?.status === 'completed') {
+      showToast('error', '本批次下件已完成，无法重复确认');
+      return;
+    }
+    if (total !== qty) {
+      showToast('error', `下件总数 (${total}) 必须等于上件数量 (${qty}) 才能确认`);
       return;
     }
     const rate = total > 0 ? (passQty / total) * 100 : 0;
@@ -79,17 +83,12 @@ function UnloadPage() {
       time: new Date().toLocaleString('zh-CN'),
     });
 
-    completeProcess(currentBatchId, 'unloading', result as any, note || undefined);
-
     showToast('success', `批次 ${currentBatch!.batchNo} 下件登记成功`);
     setFailReason('');
     setNote('');
   };
 
-  const allRecords = useMemo(() => {
-    if (unloadingRecords.length > 0) return unloadingRecords;
-    return batchRecords;
-  }, [unloadingRecords, batchRecords]);
+  const displayRecords = useMemo(() => batchRecords, [batchRecords]);
 
   return (
     <div className="space-y-6">
@@ -97,29 +96,29 @@ function UnloadPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <StatCard
-          title="今日下件"
-          value={unloadingRecords.reduce((s, r) => s + r.totalQty, 0) || total}
+          title="批次总数"
+          value={qty || 0}
           unit="件"
           icon={Package}
           color="primary"
         />
         <StatCard
           title="合格品"
-          value={unloadingRecords.reduce((s, r) => s + r.passQty, 0) || passQty}
+          value={passQty}
           unit="件"
           icon={CheckCircle}
           color="success"
         />
         <StatCard
           title="不合格品"
-          value={unloadingRecords.reduce((s, r) => s + r.failQty, 0) || failQty}
+          value={failQty}
           unit="件"
           icon={XCircle}
           color="danger"
         />
         <StatCard
           title="返工品"
-          value={unloadingRecords.reduce((s, r) => s + r.reworkQty, 0) || reworkQty}
+          value={reworkQty}
           unit="件"
           icon={RefreshCw}
           color="warning"
@@ -358,14 +357,14 @@ function UnloadPage() {
               </tr>
             </thead>
             <tbody className="text-sm">
-              {allRecords.length === 0 ? (
+              {displayRecords.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="py-10 text-center text-dark-500 text-sm">
-                    暂无下件记录，请先选择批次并登记下件
+                    暂无本批次下件记录
                   </td>
                 </tr>
               ) : (
-                allRecords.map((record) => (
+                displayRecords.map((record) => (
                   <tr key={record.id} className="border-b border-dark-700/30 hover:bg-dark-700/20">
                     <td className="py-3 font-medium text-primary-400">{record.batchNo}</td>
                     <td className="py-3 text-dark-300">{record.workpieceName}</td>
