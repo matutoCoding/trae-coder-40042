@@ -14,6 +14,7 @@ import {
   Area,
 } from 'recharts';
 import StatusBadge from '@/components/ui/StatusBadge';
+import BatchSelector from '@/components/ui/BatchSelector';
 import { mockPhosphatingRecords } from '@/data/mockData';
 
 function generatePhosData() {
@@ -39,6 +40,7 @@ function PhosphatingPage() {
 
   return (
     <div className="space-y-6">
+      <BatchSelector requiredStep="phosphating" />
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <StatCard title="槽液温度" value={41.8} unit="℃" icon={Thermometer} color="accent" />
         <StatCard title="处理时间" value={8} unit="分钟" icon={Clock} color="primary" />

@@ -144,23 +144,23 @@ export const mockLevelingParams: LevelingParams = {
 };
 
 export const mockThicknessRecords: ThicknessRecord[] = [
-  { id: '1', batchId: '4', batchNo: 'B20260617004', points: [85, 92, 88, 90, 87, 95, 89, 91], average: 89.6, min: 85, max: 95, target: 90, tolerance: 10, inspector: '质检-刘', time: '2026-06-17 10:30:00', result: 'pass' },
-  { id: '2', batchId: '5', batchNo: 'B20260616005', points: [72, 78, 75, 80, 77, 73, 76, 79], average: 76.3, min: 72, max: 80, target: 80, tolerance: 10, inspector: '质检-陈', time: '2026-06-16 21:00:00', result: 'pass' },
+  { id: '1', batchId: '4', batchNo: 'B20260617004', workpieceName: '医疗器械外壳', points: [85, 92, 88, 90, 87, 95, 89, 91, 88], average: 89.6, min: 85, max: 95, target: 90, tolerance: 10, passRate: 88.9, passCount: 8, inspector: '质检-刘', time: '2026-06-17 10:30:00', result: 'pass' },
+  { id: '2', batchId: '5', batchNo: 'B20260616005', workpieceName: '农业机械机架', points: [72, 78, 75, 80, 77, 73, 76, 79, 75], average: 76.3, min: 72, max: 80, target: 80, tolerance: 10, passRate: 77.8, passCount: 7, inspector: '质检-陈', time: '2026-06-16 21:00:00', result: 'pass' },
 ];
 
 export const mockAdhesionRecords: AdhesionRecord[] = [
-  { id: '1', batchId: '4', batchNo: 'B20260617004', grade: 1, position: '正面中心', inspector: '质检-刘', time: '2026-06-17 10:45:00', result: 'pass' },
-  { id: '2', batchId: '5', batchNo: 'B20260616005', grade: 0, position: '侧面边缘', inspector: '质检-陈', time: '2026-06-16 21:15:00', result: 'pass' },
+  { id: '1', batchId: '4', batchNo: 'B20260617004', workpieceName: '医疗器械外壳', grade: 1, position: '正面中心', inspector: '质检-刘', time: '2026-06-17 10:45:00', result: 'pass' },
+  { id: '2', batchId: '5', batchNo: 'B20260616005', workpieceName: '农业机械机架', grade: 0, position: '侧面边缘', inspector: '质检-陈', time: '2026-06-16 21:15:00', result: 'pass' },
 ];
 
 export const mockAppearanceRecords: AppearanceRecord[] = [
-  { id: '1', batchId: '4', batchNo: 'B20260617004', grade: 'B', defects: ['轻微橘皮'], description: '表面有轻微橘皮纹理，不影响使用', inspector: '质检-刘', time: '2026-06-17 11:00:00', result: 'pass' },
-  { id: '2', batchId: '5', batchNo: 'B20260616005', grade: 'A', defects: [], description: '表面光滑，无明显缺陷', inspector: '质检-陈', time: '2026-06-16 21:30:00', result: 'pass' },
+  { id: '1', batchId: '4', batchNo: 'B20260617004', workpieceName: '医疗器械外壳', grade: 'B', defects: ['轻微橘皮'], description: '表面有轻微橘皮纹理，不影响使用', inspector: '质检-刘', time: '2026-06-17 11:00:00', result: 'pass' },
+  { id: '2', batchId: '5', batchNo: 'B20260616005', workpieceName: '农业机械机架', grade: 'A', defects: [], description: '表面光滑，无明显缺陷', inspector: '质检-陈', time: '2026-06-16 21:30:00', result: 'pass' },
 ];
 
 export const mockUnloadingRecords: UnloadingRecord[] = [
-  { id: '1', batchId: '5', batchNo: 'B20260616005', totalQty: 200, passQty: 195, failQty: 3, reworkQty: 2, operator: '周工', time: '2026-06-16 22:30:00' },
-  { id: '2', batchId: '4', batchNo: 'B20260617004', totalQty: 20, passQty: 0, failQty: 0, reworkQty: 0, operator: '-', time: '进行中' },
+  { id: '1', batchId: '5', batchNo: 'B20260616005', workpieceName: '农业机械机架', totalQty: 200, passQty: 195, failQty: 3, reworkQty: 2, passRate: 97.5, operator: '周工', time: '2026-06-16 22:30:00' },
+  { id: '2', batchId: '4', batchNo: 'B20260617004', workpieceName: '医疗器械外壳', totalQty: 20, passQty: 0, failQty: 0, reworkQty: 0, passRate: 0, operator: '-', time: '进行中' },
 ];
 
 export const mockPackingRecords: PackingRecord[] = [

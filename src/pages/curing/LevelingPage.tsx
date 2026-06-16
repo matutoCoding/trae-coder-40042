@@ -1,25 +1,65 @@
-import { useState, useEffect } from 'react';
-import { Clock, Thermometer, Wind, Play, Pause, RotateCcw } from 'lucide-react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { Clock, Thermometer, Wind, Play, Pause, RotateCcw, CheckCircle2 } from 'lucide-react';
 import StatCard from '@/components/ui/StatCard';
 import { ChartCard } from '@/components/charts/ChartCard';
 import StatusBadge from '@/components/ui/StatusBadge';
-import { mockLevelingParams } from '@/data/mockData';
+import BatchSelector from '@/components/ui/BatchSelector';
+import { useProductionStore } from '@/store/productionStore';
+
+const TOTAL_SECONDS = 10 * 60;
 
 function LevelingPage() {
-  const [isRunning, setIsRunning] = useState(true);
-  const [remainingTime, setRemainingTime] = useState(600);
-  const [elapsedTime, setElapsedTime] = useState(0);
+  const {
+    currentBatchId,
+    getCurrentBatch,
+    startProcess,
+    completeProcess,
+    getProcessRecord,
+  } = useProductionStore();
+
+  const currentBatch = getCurrentBatch();
+  const stepRecord = currentBatchId ? getProcessRecord(currentBatchId, 'leveling') : null;
+
+  const initialFromStore = useMemo(() => {
+    if (!stepRecord) return { started: false, completed: false };
+    return {
+      started: stepRecord.status !== 'pending',
+      completed: stepRecord.status === 'completed',
+    };
+  }, [stepRecord]);
+
+  const [isRunning, setIsRunning] = useState(!initialFromStore.completed && initialFromStore.started);
+  const [remainingTime, setRemainingTime] = useState(
+    initialFromStore.completed ? 0 : TOTAL_SECONDS
+  );
+  const [elapsedTime, setElapsedTime] = useState(
+    initialFromStore.completed ? TOTAL_SECONDS : 0
+  );
+  const completedRef = useRef(initialFromStore.completed);
 
   useEffect(() => {
     let timer: number;
-    if (isRunning) {
+    if (isRunning && !completedRef.current) {
       timer = window.setInterval(() => {
-        setRemainingTime((prev) => Math.max(prev - 1, 0));
-        setElapsedTime((prev) => prev + 1);
+        setRemainingTime((prev) => {
+          const next = Math.max(prev - 1, 0);
+          if (next === 0 && !completedRef.current) {
+            completedRef.current = true;
+            setIsRunning(false);
+            if (currentBatchId) {
+              completeProcess(currentBatchId, 'leveling', 'pass', '流平工序计时完成');
+            }
+          }
+          return next;
+        });
+        setElapsedTime((prev) => {
+          if (completedRef.current) return prev;
+          return Math.min(prev + 1, TOTAL_SECONDS);
+        });
       }, 1000);
     }
     return () => clearInterval(timer);
-  }, [isRunning]);
+  }, [isRunning, currentBatchId, completeProcess]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -27,29 +67,58 @@ function LevelingPage() {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const progress = (elapsedTime / (mockLevelingParams.time * 60)) * 100;
+  const progress = (elapsedTime / TOTAL_SECONDS) * 100;
+  const isCompleted = completedRef.current || remainingTime <= 0;
+
+  const handleStart = () => {
+    if (!currentBatchId) {
+      alert('请先选择批次');
+      return;
+    }
+    if (!initialFromStore.started && elapsedTime === 0) {
+      startProcess(currentBatchId, 'leveling', '系统自动');
+    }
+    setIsRunning(true);
+  };
+
+  const handlePause = () => setIsRunning(false);
 
   const resetTimer = () => {
-    setRemainingTime(mockLevelingParams.time * 60);
+    completedRef.current = false;
+    setRemainingTime(TOTAL_SECONDS);
     setElapsedTime(0);
     setIsRunning(false);
   };
 
   return (
     <div className="space-y-6">
+      <BatchSelector requiredStep="leveling" />
+
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <StatCard title="流平温度" value={mockLevelingParams.temperature} unit="℃" icon={Thermometer} color="accent" />
-        <StatCard title="设定时间" value={mockLevelingParams.time} unit="分钟" icon={Clock} color="primary" />
+        <StatCard title="流平温度" value={25} unit="℃" icon={Thermometer} color="accent" />
+        <StatCard title="设定时间" value={10} unit="分钟" icon={Clock} color="primary" />
         <StatCard title="环境湿度" value={55} unit="%" icon={Wind} color="success" />
-        <StatCard title="状态" value="流平中" unit="" icon={Play} color="warning" />
+        <StatCard
+          title="状态"
+          value={isCompleted ? '已完成' : isRunning ? '流平中' : '待开始'}
+          unit=""
+          icon={isCompleted ? CheckCircle2 : Play}
+          color={isCompleted ? 'success' : isRunning ? 'warning' : 'primary'}
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
           <ChartCard
             title="流平倒计时"
-            subtitle="当前流平工序进度"
-            action={<StatusBadge status={isRunning ? 'running' : 'stop'} text={isRunning ? '流平中' : '已暂停'} />}
+            subtitle={currentBatch ? `批次: ${currentBatch.batchNo}` : '请先选择批次'}
+            action={
+              isCompleted ? (
+                <StatusBadge status="pass" text="流平完成" />
+              ) : (
+                <StatusBadge status={isRunning ? 'running' : 'stop'} text={isRunning ? '流平中' : '已暂停'} />
+              )
+            }
           >
             <div className="py-8 flex flex-col items-center">
               <div className="relative w-64 h-64">
@@ -67,7 +136,7 @@ function LevelingPage() {
                     cy="128"
                     r="110"
                     fill="none"
-                    stroke="#FF6B35"
+                    stroke={isCompleted ? '#10B981' : '#FF6B35'}
                     strokeWidth="12"
                     strokeLinecap="round"
                     strokeDasharray={`${progress * 6.91} 691`}
@@ -75,31 +144,52 @@ function LevelingPage() {
                   />
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-5xl font-bold font-display text-white tracking-wider glow-text">
+                  <span className={`text-5xl font-bold font-display tracking-wider ${
+                    isCompleted ? 'text-success glow-success' : 'text-white glow-text'
+                  }`}>
                     {formatTime(remainingTime)}
                   </span>
-                  <span className="text-sm text-dark-400 mt-2">剩余时间</span>
-                  <span className="text-xs text-accent-400 mt-1">已完成 {progress.toFixed(1)}%</span>
+                  <span className="text-sm text-dark-400 mt-2">
+                    {isCompleted ? '工序已完成' : '剩余时间'}
+                  </span>
+                  <span className={`text-xs mt-1 ${
+                    isCompleted ? 'text-success' : 'text-accent-400'
+                  }`}>
+                    已完成 {progress.toFixed(1)}%
+                  </span>
                 </div>
               </div>
 
               <div className="mt-8 flex items-center gap-4">
-                <button
-                  onClick={() => setIsRunning(!isRunning)}
-                  className={`p-4 rounded-full transition-all ${
-                    isRunning
-                      ? 'bg-warning/20 text-warning hover:bg-warning/30'
-                      : 'bg-success/20 text-success hover:bg-success/30'
-                  }`}
-                >
-                  {isRunning ? <Pause size={28} /> : <Play size={28} />}
-                </button>
-                <button
-                  onClick={resetTimer}
-                  className="p-4 rounded-full bg-dark-700/50 text-dark-300 hover:bg-dark-700 hover:text-white transition-all"
-                >
-                  <RotateCcw size={28} />
-                </button>
+                {isCompleted ? (
+                  <button
+                    onClick={resetTimer}
+                    className="p-4 rounded-full bg-primary-500/20 text-primary-400 hover:bg-primary-500/30 transition-all"
+                    title="重新开始"
+                  >
+                    <RotateCcw size={28} />
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      onClick={isRunning ? handlePause : handleStart}
+                      disabled={!currentBatchId}
+                      className={`p-4 rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                        isRunning
+                          ? 'bg-warning/20 text-warning hover:bg-warning/30'
+                          : 'bg-success/20 text-success hover:bg-success/30'
+                      }`}
+                    >
+                      {isRunning ? <Pause size={28} /> : <Play size={28} />}
+                    </button>
+                    <button
+                      onClick={resetTimer}
+                      className="p-4 rounded-full bg-dark-700/50 text-dark-300 hover:bg-dark-700 hover:text-white transition-all"
+                    >
+                      <RotateCcw size={28} />
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </ChartCard>

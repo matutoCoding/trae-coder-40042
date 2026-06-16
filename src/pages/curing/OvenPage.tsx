@@ -13,6 +13,7 @@ import {
   Legend,
 } from 'recharts';
 import StatusBadge from '@/components/ui/StatusBadge';
+import BatchSelector from '@/components/ui/BatchSelector';
 import { mockOvenZones, generateOvenTempData } from '@/data/mockData';
 
 function OvenPage() {
@@ -25,6 +26,7 @@ function OvenPage() {
 
   return (
     <div className="space-y-6">
+      <BatchSelector requiredStep="oven" />
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <StatCard title="最高温度" value={182} unit="℃" icon={Thermometer} color="accent" />
         <StatCard title="保温时间" value={25} unit="分钟" icon={Clock} color="primary" />

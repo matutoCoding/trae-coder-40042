@@ -10,6 +10,7 @@ import {
   Wind,
   ChevronDown,
   ChevronRight,
+  GitBranch,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -27,6 +28,12 @@ export const menuConfig: MenuItem[] = [
     label: '工作台',
     icon: LayoutDashboard,
     path: '/dashboard',
+  },
+  {
+    key: 'flowboard',
+    label: '批次流转看板',
+    icon: GitBranch,
+    path: '/flowboard',
   },
   {
     key: 'loading',

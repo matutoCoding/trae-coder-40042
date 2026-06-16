@@ -14,6 +14,7 @@ import {
   AreaChart,
 } from 'recharts';
 import StatusBadge from '@/components/ui/StatusBadge';
+import BatchSelector from '@/components/ui/BatchSelector';
 import { mockDegreasingRecords } from '@/data/mockData';
 
 function generateTempData() {
@@ -44,6 +45,7 @@ function DegreasingPage() {
 
   return (
     <div className="space-y-6">
+      <BatchSelector requiredStep="degreasing" />
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <StatCard title="当前温度" value={params.temperature.toFixed(1)} unit="℃" icon={Thermometer} color="accent" trend={0.5} trendLabel="目标 55℃" />
         <StatCard title="处理时间" value={params.time} unit="分钟" icon={Clock} color="primary" />

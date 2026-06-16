@@ -16,6 +16,7 @@ import UnloadPage from '@/pages/unloading/UnloadPage';
 import PackingPage from '@/pages/unloading/PackingPage';
 import WasteGasMonitoringPage from '@/pages/waste-gas/WasteGasMonitoringPage';
 import WasteGasEquipmentPage from '@/pages/waste-gas/WasteGasEquipmentPage';
+import FlowBoardPage from '@/pages/flowboard/FlowBoardPage';
 
 export default function App() {
   return (
@@ -24,6 +25,7 @@ export default function App() {
         <Route path="/" element={<Layout />}>
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
+          <Route path="flowboard" element={<FlowBoardPage />} />
           <Route path="loading" element={<LoadingPage />} />
           
           <Route path="pretreatment">

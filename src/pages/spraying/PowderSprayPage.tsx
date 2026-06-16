@@ -3,6 +3,7 @@ import { Zap, Activity, Gauge, Wind } from 'lucide-react';
 import StatCard from '@/components/ui/StatCard';
 import { ChartCard } from '@/components/charts/ChartCard';
 import StatusBadge from '@/components/ui/StatusBadge';
+import BatchSelector from '@/components/ui/BatchSelector';
 import { mockSprayGuns } from '@/data/mockData';
 
 function PowderSprayPage() {
@@ -12,6 +13,7 @@ function PowderSprayPage() {
 
   return (
     <div className="space-y-6">
+      <BatchSelector requiredStep="powder" />
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <StatCard title="喷粉电压" value={76.5} unit="KV" icon={Zap} color="accent" />
         <StatCard title="喷粉电流" value={21.3} unit="μA" icon={Activity} color="primary" />

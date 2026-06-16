@@ -3,6 +3,7 @@ import { Thermometer, Clock, Droplets, Wind } from 'lucide-react';
 import StatCard from '@/components/ui/StatCard';
 import { ChartCard } from '@/components/charts/ChartCard';
 import StatusBadge from '@/components/ui/StatusBadge';
+import BatchSelector from '@/components/ui/BatchSelector';
 import { mockDryingRecords } from '@/data/mockData';
 
 function DryingPage() {
@@ -22,6 +23,7 @@ function DryingPage() {
 
   return (
     <div className="space-y-6">
+      <BatchSelector requiredStep="drying" />
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <StatCard title="水洗次数" value={dryingParams.washCount} unit="次" icon={Droplets} color="primary" />
         <StatCard title="烘干温度" value={dryingParams.dryingTemp} unit="℃" icon={Thermometer} color="accent" />

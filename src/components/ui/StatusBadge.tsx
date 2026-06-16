@@ -20,7 +20,9 @@ type StatusType =
   | 'rework'
   | 'stable'
   | 'heating'
-  | 'cooling';
+  | 'cooling'
+  | 'unloading'
+  | 'packing';
 
 interface StatusBadgeProps {
   status: StatusType;
@@ -129,6 +131,16 @@ const statusConfig: Record<StatusType, { label: string; className: string; dot: 
     label: '降温中',
     className: 'bg-info/15 text-info',
     dot: 'bg-info animate-pulse',
+  },
+  unloading: {
+    label: '下件中',
+    className: 'bg-accent-500/15 text-accent-400',
+    dot: 'bg-accent-500 animate-pulse',
+  },
+  packing: {
+    label: '包装中',
+    className: 'bg-purple-500/15 text-purple-400',
+    dot: 'bg-purple-500 animate-pulse',
   },
 };
 

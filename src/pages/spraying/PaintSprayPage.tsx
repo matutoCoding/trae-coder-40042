@@ -12,6 +12,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import StatusBadge from '@/components/ui/StatusBadge';
+import BatchSelector from '@/components/ui/BatchSelector';
 import { mockSprayGuns } from '@/data/mockData';
 
 function generatePaintData() {
@@ -32,6 +33,7 @@ function PaintSprayPage() {
 
   return (
     <div className="space-y-6">
+      <BatchSelector requiredStep="paint" />
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <StatCard title="喷漆压力" value={0.45} unit="MPa" icon={Droplets} color="accent" />
         <StatCard title="油漆流量" value={180} unit="ml/min" icon={Paintbrush} color="primary" />

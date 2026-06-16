@@ -1,4 +1,37 @@
-export type BatchStatus = 'loading' | 'pretreatment' | 'spraying' | 'curing' | 'inspection' | 'finished' | 'rework';
+export type BatchStatus = 'loading' | 'pretreatment' | 'spraying' | 'curing' | 'inspection' | 'unloading' | 'packing' | 'finished' | 'rework';
+
+export type ProcessStep = 
+  | 'loading'
+  | 'degreasing'
+  | 'phosphating'
+  | 'drying'
+  | 'powder'
+  | 'paint'
+  | 'leveling'
+  | 'oven'
+  | 'thickness'
+  | 'adhesion'
+  | 'appearance'
+  | 'unloading'
+  | 'packing';
+
+export interface ProcessRecord {
+  batchId: string;
+  step: ProcessStep;
+  stepName: string;
+  status: 'pending' | 'running' | 'completed' | 'skipped';
+  startTime?: string;
+  endTime?: string;
+  operator?: string;
+  params?: Record<string, any>;
+  result?: 'pass' | 'fail' | 'pending';
+  note?: string;
+}
+
+export interface BatchTimeline {
+  batchId: string;
+  records: ProcessRecord[];
+}
 
 export type EquipmentStatus = 'running' | 'stop' | 'fault' | 'maintenance';
 
@@ -115,12 +148,15 @@ export interface ThicknessRecord {
   id: string;
   batchId: string;
   batchNo: string;
+  workpieceName: string;
   points: number[];
   average: number;
   min: number;
   max: number;
   target: number;
   tolerance: number;
+  passRate: number;
+  passCount: number;
   inspector: string;
   time: string;
   result: InspectionResult;
@@ -130,9 +166,11 @@ export interface AdhesionRecord {
   id: string;
   batchId: string;
   batchNo: string;
-  grade: 0 | 1 | 2 | 3 | 4 | 5;
+  workpieceName: string;
+  grade: number;
   position: string;
   inspector: string;
+  note?: string;
   time: string;
   result: InspectionResult;
 }
@@ -141,7 +179,8 @@ export interface AppearanceRecord {
   id: string;
   batchId: string;
   batchNo: string;
-  grade: 'A' | 'B' | 'C' | 'D';
+  workpieceName: string;
+  grade: string;
   defects: string[];
   description: string;
   inspector: string;
@@ -153,10 +192,14 @@ export interface UnloadingRecord {
   id: string;
   batchId: string;
   batchNo: string;
+  workpieceName: string;
   totalQty: number;
   passQty: number;
   failQty: number;
   reworkQty: number;
+  passRate: number;
+  failReason?: string;
+  note?: string;
   operator: string;
   time: string;
 }
